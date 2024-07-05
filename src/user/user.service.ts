@@ -58,7 +58,10 @@ export class UserService {
 
   async login(loginUserDto: LoginUserDto): Promise<UserEntity> {
     const { email, password } = loginUserDto;
-    const user = await this.userRepository.findOne({ where: { email } });
+    const user = await this.userRepository.findOne({
+      where: { email },
+      select: ['id', 'username', 'email', 'bio', 'image', 'password'],
+    });
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -69,6 +72,8 @@ export class UserService {
     if (!isPasswordCorrect) {
       throw new UnauthorizedException('Invalid password');
     }
+
+    delete user.password;
 
     return user;
   }
