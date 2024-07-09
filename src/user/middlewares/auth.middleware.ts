@@ -20,13 +20,11 @@ export class AuthMiddleware implements NestMiddleware {
     }
 
     const token = authorization.split(' ')[1];
-
     try {
       const decode = verify(token, process.env.JWT_SECRET) as JwtPayload;
       req.user = await this.userService.findById(decode.id);
     } catch {
       req.user = null;
-      next();
     }
     next();
   }

@@ -5,13 +5,15 @@ import {
   Get,
   UsePipes,
   ValidationPipe,
-  Req,
+  UseGuards,
 } from '@nestjs/common';
 
 import { UserService } from './user.service';
+import { UserEntity } from './user.entity';
 import { CreateUserDto, LoginUserDto } from './dto';
 import { UserResponseInterface } from './types/userResponse.interface';
-import { ExpressRequestInterface } from '@app/types/expressRequest.interface';
+import { User } from './decorators/user.decorator';
+import { AuthGuard } from './guards/auth.guard';
 
 @Controller()
 export class UserController {
@@ -36,9 +38,8 @@ export class UserController {
   }
 
   @Get('user')
-  async currentUser(
-    @Req() request: ExpressRequestInterface,
-  ): Promise<UserResponseInterface> {
-    return this.userService.buildUserResponse(request.user);
+  @UseGuards(AuthGuard)
+  async currentUser(@User() user: UserEntity): Promise<UserResponseInterface> {
+    return this.userService.buildUserResponse(user);
   }
 }
