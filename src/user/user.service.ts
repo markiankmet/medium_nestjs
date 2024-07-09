@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -9,7 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { sign } from 'jsonwebtoken';
 import { compare } from 'bcrypt';
 
-import { CreateUserDto, LoginUserDto } from './dto';
+import { CreateUserDto, LoginUserDto, UpdateUserDto } from './dto';
 import { UserEntity } from './user.entity';
 import { UserResponseInterface } from './types/userResponse.interface';
 
@@ -80,5 +82,24 @@ export class UserService {
     delete user.password;
 
     return user;
+  }
+
+  async updateUser(
+    updateUserDto: UpdateUserDto,
+    id: number,
+  ): Promise<UserEntity> {
+    const user = await this.findById(id);
+
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    Object.assign(user, updateUserDto);
+
+    const updatedUser = await this.userRepository.save(user);
+
+    delete updatedUser.password;
+
+    return updatedUser;
   }
 }
