@@ -4,20 +4,50 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import slugify from 'slugify';
 
 import { UserEntity } from '../user/user.entity';
 import { ArticleEntity } from './article.entity';
 import { CreateArticleDto, UpdateArticleDto } from './dto';
-import { ArticleResponseInterface } from '@app/article/types/articleResponse.interface';
+import { ArticleResponseInterface, ArticlesResponseInterface } from './types';
 
 @Injectable()
 export class ArticleService {
   constructor(
     @InjectRepository(ArticleEntity)
     private readonly articleRepository: Repository<ArticleEntity>,
+    private dataSource: DataSource,
   ) {}
+
+  async findAll(
+    currentUserId: number,
+    query: any,
+  ): Promise<ArticlesResponseInterface> {
+    const queryBuilder = this.dataSource
+      .getRepository(ArticleEntity)
+      .createQueryBuilder('articles')
+      .leftJoinAndSelect('articles.author', 'author');
+
+    queryBuilder.orderBy('articles.createdAt', 'DESC');
+
+    const articlesCount = await queryBuilder.getCount();
+
+    if (query.limit) {
+      queryBuilder.limit(query.limit);
+    }
+
+    if (query.offset) {
+      queryBuilder.offset(query.offset);
+    }
+
+    const articles = await queryBuilder.getMany();
+
+    return {
+      articles,
+      articlesCount,
+    };
+  }
 
   async create(
     currentUser: UserEntity,
