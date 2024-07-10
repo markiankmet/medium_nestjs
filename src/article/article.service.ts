@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import slugify from 'slugify';
@@ -31,7 +31,6 @@ export class ArticleService {
   }
 
   buildArticleResponse(article: ArticleEntity): ArticleResponseInterface {
-    delete article.author.id;
     return {
       article: {
         ...article,
@@ -45,5 +44,18 @@ export class ArticleService {
       '-' +
       ((Math.random() * Math.pow(36, 6)) | 0).toString(36)
     );
+  }
+
+  async findBySlug(slug: string): Promise<ArticleEntity> {
+    const article = await this.articleRepository.findOne({
+      where: { slug },
+      relations: ['author'],
+    });
+
+    if (!article) {
+      throw new NotFoundException(`Article with slug - ${article} not found`);
+    }
+
+    return article;
   }
 }
