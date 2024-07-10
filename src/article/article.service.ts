@@ -1,11 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import slugify from 'slugify';
 
 import { UserEntity } from '../user/user.entity';
 import { ArticleEntity } from './article.entity';
-import { CreateArticleDto } from './dto/createArticle.dto';
+import { CreateArticleDto, UpdateArticleDto } from './dto';
 import { ArticleResponseInterface } from '@app/article/types/articleResponse.interface';
 
 @Injectable()
@@ -30,6 +34,58 @@ export class ArticleService {
     return await this.articleRepository.save(article);
   }
 
+  async findBySlug(slug: string): Promise<ArticleEntity> {
+    const article = await this.getArticleBySlug(slug);
+
+    if (!article) {
+      throw new NotFoundException(`Article with slug - ${article} not found`);
+    }
+
+    return article;
+  }
+
+  async updateBySlug(
+    currentUserId: number,
+    slug: string,
+    updateArticleDto: UpdateArticleDto,
+  ): Promise<ArticleEntity> {
+    const article = await this.getArticleBySlug(slug);
+
+    if (article.author.id !== currentUserId) {
+      throw new ForbiddenException('Not allowed!');
+    }
+
+    if (!article) {
+      throw new NotFoundException(`Article with slug: ${slug} not found!`);
+    }
+
+    if (updateArticleDto.title && updateArticleDto.title !== article.title) {
+      article.slug = this.getSlug(updateArticleDto.title);
+    }
+
+    Object.assign(article, updateArticleDto);
+
+    return await this.articleRepository.save(article);
+  }
+
+  async deleteBySlug(currentUserId: number, slug: string): Promise<void> {
+    const article = await this.getArticleBySlug(slug);
+
+    if (article.author.id !== currentUserId) {
+      throw new ForbiddenException('Forbidden');
+    }
+
+    if (!article) {
+      throw new NotFoundException(`Article with slug: ${slug} not found`);
+    }
+
+    await this.articleRepository.remove(article);
+  }
+
+  async getArticleBySlug(slug: string): Promise<ArticleEntity> {
+    return await this.articleRepository.findOne({ where: { slug } });
+  }
+
   buildArticleResponse(article: ArticleEntity): ArticleResponseInterface {
     return {
       article: {
@@ -44,18 +100,5 @@ export class ArticleService {
       '-' +
       ((Math.random() * Math.pow(36, 6)) | 0).toString(36)
     );
-  }
-
-  async findBySlug(slug: string): Promise<ArticleEntity> {
-    const article = await this.articleRepository.findOne({
-      where: { slug },
-      relations: ['author'],
-    });
-
-    if (!article) {
-      throw new NotFoundException(`Article with slug - ${article} not found`);
-    }
-
-    return article;
   }
 }
