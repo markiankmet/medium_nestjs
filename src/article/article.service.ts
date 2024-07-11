@@ -35,6 +35,22 @@ export class ArticleService {
 
     const articlesCount = await queryBuilder.getCount();
 
+    if (query.favorited) {
+      const user = await this.userRepository.findOne({
+        where: { username: query.favorited },
+        relations: ['favorites'],
+      });
+
+      const ids = user.favorites.map((article) => article.id);
+      if (ids.length) {
+        queryBuilder.andWhere('articles.id IN (:...ids)', {
+          ids: ids,
+        });
+      } else {
+        queryBuilder.andWhere('1=0');
+      }
+    }
+
     if (query.tag) {
       queryBuilder.andWhere('articles.tagList LIKE :tag', {
         tag: `%${query.tag}%`,
@@ -58,10 +74,26 @@ export class ArticleService {
       queryBuilder.offset(query.offset);
     }
 
+    let favoritedIds: number[] = [];
+
+    if (currentUserId) {
+      const currentUser = await this.userRepository.findOne({
+        where: { id: currentUserId },
+        relations: ['favorites'],
+      });
+      favoritedIds = currentUser.favorites.map(
+        (favoritedArticle) => favoritedArticle.id,
+      );
+    }
+
     const articles = await queryBuilder.getMany();
+    const articlesWithFavorites = articles.map((article) => {
+      const favorited = favoritedIds.includes(article.id);
+      return { ...article, favorited };
+    });
 
     return {
-      articles,
+      articles: articlesWithFavorites,
       articlesCount,
     };
   }
