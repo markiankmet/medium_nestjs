@@ -154,6 +154,30 @@ export class ArticleService {
     return article;
   }
 
+  async removeArticleFromFavorites(
+    slug: string,
+    userId: number,
+  ): Promise<ArticleEntity> {
+    const article = await this.getArticleBySlug(slug);
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['favorites'],
+    });
+
+    const articleIndex = user.favorites.findIndex(
+      (favoriteArticle) => favoriteArticle.id === article.id,
+    );
+
+    if (articleIndex >= 0) {
+      user.favorites.splice(articleIndex, 1);
+      article.favoritedCount--;
+      await this.userRepository.save(user);
+      await this.articleRepository.save(article);
+    }
+
+    return article;
+  }
+
   async getArticleBySlug(slug: string): Promise<ArticleEntity> {
     return await this.articleRepository.findOne({ where: { slug } });
   }
