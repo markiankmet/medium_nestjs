@@ -34,9 +34,6 @@ export class ArticleEntity {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   updatedAt: Date;
 
-  @Column({ default: false })
-  favorited: boolean;
-
   @Column({ default: 0 })
   favoritedCount: number;
 
