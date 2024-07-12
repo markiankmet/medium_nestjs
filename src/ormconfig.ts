@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const config: { database: PostgresConnectionOptions } = {
+const ormconfig: { database: PostgresConnectionOptions } = {
   database: {
     type: 'postgres',
     host: process.env.POSTGRES_HOST,
@@ -18,4 +18,4 @@ const config: { database: PostgresConnectionOptions } = {
   },
 };
 
-export default config;
+export default ormconfig;
