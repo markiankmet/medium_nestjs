@@ -9,6 +9,7 @@ import slugify from 'slugify';
 
 import { UserEntity } from '../user/user.entity';
 import { ArticleEntity } from './article.entity';
+import { FollowEntity } from '../profile/follow.entity';
 import { CreateArticleDto, UpdateArticleDto } from './dto';
 import { ArticleResponseInterface, ArticlesResponseInterface } from './types';
 
@@ -19,6 +20,8 @@ export class ArticleService {
     private readonly articleRepository: Repository<ArticleEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
+    @InjectRepository(FollowEntity)
+    private readonly followRepository: Repository<FollowEntity>,
     private dataSource: DataSource,
   ) {}
 
@@ -96,6 +99,64 @@ export class ArticleService {
       articles: articlesWithFavorites,
       articlesCount,
     };
+  }
+
+  async feedArticles(
+    currentUserId: number,
+    query: any,
+  ): Promise<ArticlesResponseInterface> {
+    const followedUsers = await this.followRepository.find({
+      where: {
+        followerId: currentUserId,
+      },
+    });
+
+    if (!followedUsers.length) {
+      return { articles: [], articlesCount: 0 };
+    }
+
+    const followedUsersIds = followedUsers.map(
+      (followedUser) => followedUser.followingId,
+    );
+
+    const currentUser = await this.userRepository.findOne({
+      where: { id: currentUserId },
+      relations: ['favorites'],
+    });
+
+    const favoritedIds = currentUser.favorites.map(
+      (favoriteArticle) => favoriteArticle.id,
+    );
+
+    const queryBuilder = this.dataSource
+      .getRepository(ArticleEntity)
+      .createQueryBuilder('articles')
+      .leftJoinAndSelect('articles.author', 'author');
+
+    queryBuilder.orderBy('articles.createdAt', 'DESC');
+
+    queryBuilder.andWhere('articles.authorId IN (:...ids)', {
+      ids: followedUsersIds,
+    });
+    const articlesCount = await queryBuilder.getCount();
+
+    if (query.limit) {
+      queryBuilder.limit(query.limit);
+    }
+
+    if (query.offset) {
+      queryBuilder.offset(query.offset);
+    }
+
+    const articlesByFollowedUsers = await queryBuilder.getMany();
+    const articlesByFollowedUsersWithFavorites = articlesByFollowedUsers.map(
+      (articleByFollowedUsers) => {
+        const favorited = favoritedIds.includes(articleByFollowedUsers.id);
+        return { ...articleByFollowedUsers, favorited };
+      },
+    );
+
+    return { articles: articlesByFollowedUsersWithFavorites, articlesCount };
   }
 
   async create(
