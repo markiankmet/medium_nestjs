@@ -23,15 +23,31 @@ export class UserService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserEntity> {
-    const userByEmailOrUsername = await this.userRepository.findOne({
-      where: [
-        { email: createUserDto.email },
-        { username: createUserDto.username },
-      ],
+    const errorResponse = {
+      errors: {},
+    };
+    const userByUsername = await this.userRepository.findOne({
+      where: { username: createUserDto.username },
     });
-    if (userByEmailOrUsername) {
+
+    const userByEmail = await this.userRepository.findOne({
+      where: { email: createUserDto.email },
+    });
+
+    if (userByEmail) {
+      errorResponse.errors['email'] = 'has already been taken';
       throw new ConflictException('Email or username already exists');
     }
+
+    if (userByUsername) {
+      errorResponse.errors['username'] = 'has already been taken';
+      throw new HttpException(errorResponse, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
+    if (Object.keys(errorResponse.errors).length) {
+      throw new HttpException(errorResponse, HttpStatus.UNPROCESSABLE_ENTITY);
+    }
+
     const newUser = new UserEntity();
     Object.assign(newUser, createUserDto);
     return await this.userRepository.save(newUser);
@@ -41,28 +57,12 @@ export class UserService {
     return this.userRepository.findOne({ where: { id } });
   }
 
-  generateJwt(user: UserEntity): string {
-    return sign(
-      {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' },
-    );
-  }
-
-  buildUserResponse(user: UserEntity): UserResponseInterface {
-    return {
-      user: {
-        ...user,
-        token: this.generateJwt(user),
+  async login(loginUserDto: LoginUserDto): Promise<UserEntity> {
+    const errorResponse = {
+      errors: {
+        'email or password': 'is invalid',
       },
     };
-  }
-
-  async login(loginUserDto: LoginUserDto): Promise<UserEntity> {
     const { email, password } = loginUserDto;
     const user = await this.userRepository.findOne({
       where: { email },
@@ -70,13 +70,13 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new HttpException(errorResponse, HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     const isPasswordCorrect = await compare(password, user.password);
 
     if (!isPasswordCorrect) {
-      throw new UnauthorizedException('Invalid password');
+      throw new HttpException(errorResponse, HttpStatus.UNPROCESSABLE_ENTITY);
     }
 
     delete user.password;
@@ -101,5 +101,26 @@ export class UserService {
     delete updatedUser.password;
 
     return updatedUser;
+  }
+
+  generateJwt(user: UserEntity): string {
+    return sign(
+      {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' },
+    );
+  }
+
+  buildUserResponse(user: UserEntity): UserResponseInterface {
+    return {
+      user: {
+        ...user,
+        token: this.generateJwt(user),
+      },
+    };
   }
 }

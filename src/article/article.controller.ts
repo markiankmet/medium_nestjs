@@ -8,6 +8,7 @@ import {
   Param,
   Delete,
   Query,
+  UsePipes,
 } from '@nestjs/common';
 
 import { ArticleService } from './article.service';
@@ -16,6 +17,7 @@ import { User } from '../user/decorators/user.decorator';
 import { UserEntity } from '../user/user.entity';
 import { CreateArticleDto, UpdateArticleDto } from './dto';
 import { ArticleResponseInterface, ArticlesResponseInterface } from './types';
+import { BackendValidationPipe } from '@app/shared/pipes/backendValidation.pipe';
 
 @Controller('articles')
 export class ArticleController {
@@ -31,12 +33,16 @@ export class ArticleController {
 
   @Get('feed')
   @UseGuards(AuthGuard)
-  async feedArticles(@User('id') currentUserId: number, @Query() query: any,): Promise<ArticlesResponseInterface> {
+  async feedArticles(
+    @User('id') currentUserId: number,
+    @Query() query: any,
+  ): Promise<ArticlesResponseInterface> {
     return await this.articleService.feedArticles(currentUserId, query);
   }
 
   @Post()
   @UseGuards(AuthGuard)
+  @UsePipes(new BackendValidationPipe())
   async create(
     @User() currentUser: UserEntity,
     @Body('article') createArticleDto: CreateArticleDto,
